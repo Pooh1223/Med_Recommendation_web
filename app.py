@@ -13,9 +13,12 @@ import base64
 app = Flask(__name__, template_folder='templates')
 app.config["SECRET_KEY"] = "123456"
 
-di_name_mat = pd.read_csv('model/di_name_mat.csv')
-med_name_dt = pd.read_csv('model/med_name_mat.csv')
-prob_mat = pd.read_csv('model/dm_mat.csv')
+di_name_mat = pd.read_csv('model/di_name_csv.csv')
+med_name_dt = pd.read_csv('model/med_name_csv.csv')
+# prob_mat = pd.read_csv('model/dm_mat.csv')
+
+with open('model/big_matrix','rb') as fp:
+    cnt_mat = pickle.load(fp)
 
 di_name_list = di_name_mat['name'].tolist()
 
@@ -35,13 +38,13 @@ de_name_list.insert(0,'default')
 gender_list.insert(0,'default')
 age_list.insert(0,'default')
 
-# disease, department, gender, age probability co-matrix
-with open('model/triplet','rb') as fp:
-    dept_gender_age_di = pickle.load(fp)
+# # disease, department, gender, age probability co-matrix
+# with open('model/triplet','rb') as fp:
+#     dept_gender_age_di = pickle.load(fp)
 
-# disease, department, gender, age count co-matrix
-with open('model/dept_gender_age_cnt','rb') as fp:
-    dept_gender_age_num = pickle.load(fp)
+# # disease, department, gender, age count co-matrix
+# with open('model/dept_gender_age_cnt','rb') as fp:
+#     dept_gender_age_num = pickle.load(fp)
 
 # department data form in order to calculate the probability
 with open('model/dept_cnt','rb') as fp:
@@ -162,9 +165,9 @@ def result():
     gender_end = 2
     dept_begin = 0
     dept_end = len(de_name_list) - 1 # minus default
-    p_dept = 1
-    p_gender = 1
-    p_age = 1
+    # p_dept = 1
+    # p_gender = 1
+    # p_age = 1
 
     # check if all if default
     all_default = True
@@ -174,7 +177,7 @@ def result():
         age_begin = int(session['chosen_age'])
         age_end = int(session['chosen_age']) + 1
 
-        p_age = age_cnt[0][int(session['chosen_age'])][1] / age_cnt[1]
+        # p_age = age_cnt[0][int(session['chosen_age'])][1] / age_cnt[1]
 
         all_default = False
 
@@ -184,7 +187,7 @@ def result():
         else :
             gender_begin = 1
 
-        p_gender = gender_cnt[0][session['chosen_gender']][1] / gender_cnt[1]
+        # p_gender = gender_cnt[0][session['chosen_gender']][1] / gender_cnt[1]
 
         all_default = False
 
@@ -193,7 +196,7 @@ def result():
         dept_begin = de_name_list.index(session['chosen_dept'])
         dept_end = de_name_list.index(session['chosen_dept']) + 1
 
-        p_dept = dept_cnt[0][de_name_id_list[session['chosen_dept']]][1] / dept_cnt[1]
+        # p_dept = dept_cnt[0][de_name_id_list[session['chosen_dept']]][1] / dept_cnt[1]
 
         all_default = False
 
@@ -202,22 +205,35 @@ def result():
     conditional_deno = 0
     conditional_numer = 0
 
-    print(dept_gender_age_di.shape)
+    # print(dept_gender_age_di.shape)
     # print(de_name_list)
 
-    di_prob = 1
+    # di_prob = 1
     di_id = di_name_list.index(session['chosen_disease'])
 
-    if not all_default:
-        for i in range(dept_begin,dept_end):
-            for j in range(gender_begin,gender_end):
-                for k in range(age_begin,age_end):
-                    disease_id = di_id
-                    conditional_numer += dept_gender_age_di[i][j][k][disease_id] * dept_gender_age_num[i][j][k]
-                    conditional_deno += dept_gender_age_num[i][j][k]
+    # run through all possible medicine and add them into alter_med
+    # alter_med format: {med_name: count}
+    alter_med = {}
+    for i in range(dept_begin,dept_end):
+        for j in range(gender_begin,gender_end):
+            for k in range(age_begin,age_end):
+                disease_id = di_id
+                for item in cnt_mat[disease_id][i][j][k][0].keys():
+                    if item not in alter_med:
+                        alter_med[item] = cnt_mat[disease_id][i][j][k][0][item]
+                    else :
+                        alter_med[item] += cnt_mat[disease_id][i][j][k][0][item]
 
-        di_prob = conditional_numer / conditional_deno
-    print(di_prob)
+                conditional_deno += cnt_mat[disease_id][i][j][k][1]
+
+    # di_prob = conditional_numer / conditional_deno
+    # print(di_prob)
+
+    # med_prob format: [(med_name,prob)]
+    med_prob = []
+
+    for item in alter_med.keys():
+        med_prob.append([item,alter_med[item] / conditional_deno])
 
     # find the corresponding icd code given disease chinese name
     id = -1
@@ -228,29 +244,33 @@ def result():
 
     # multiply by conditional probability : p(med | disease) * p(disease | dept , gender , age) * p(dept) * p(gender) * p(age)
 
-    result_prob = []
+    # result_prob = []
 
-    for item in list(prob_mat.loc[:,id]):
-        conditional_prob = item * di_prob * p_dept * p_gender * p_age
-        result_prob.append(conditional_prob)
+    # for item in list(prob_mat.loc[:,id]):
+    #     conditional_prob = item * di_prob * p_dept * p_gender * p_age
+    #     result_prob.append(conditional_prob)
 
     # di_col = list(prob_mat.loc[:,id])
     # di_col = zip(di_col,list(x for x in range(len(di_col))))
-    di_col = zip(result_prob,list(x for x in range(len(result_prob))))
-    di_col = sorted(di_col,key = lambda s: s[0],reverse = True)
+    # di_col = zip(med_prob,list(x for x in range(len(med_prob))))
+    di_col = sorted(med_prob,key = lambda s: s[1],reverse = True)
 
-    med_name = list(med_name_dt.loc[:,'name'])
+    # med_name = list(med_name_dt.loc[:,'name'])
 
     med_name_prob = []
 
     # insert pair (med_name,probability)
-    for i in range(10):
-        med_name_prob.append([med_name[di_col[i][1]],di_col[i][0]])
+    for i in range(min(10,len(di_col))):
+        # print(med_prob[i][1])
+        # print(type(med_prob[i][1]))
+        med_name_prob.append([di_col[i][0],di_col[i][1]])
 
     # session['med'] = di_col
     # session['med_name'] = list(med_name_dt.loc[:,'name'])
 
     # plot the top 10 medicine as png (bar chart)
+    print(med_name_prob)
+    print(type(med_name_prob))
     med_img = bar_chart_plot(med_name_prob,'Med','Prob','Top 10 medicine',20,'top10med')
 
     # calculate the distributions of three features
