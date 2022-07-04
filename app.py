@@ -9,11 +9,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from io import BytesIO
 import base64
+from Class.AttrSelect import *
 
 app = Flask(__name__, template_folder='templates')
 app.config["SECRET_KEY"] = "123456"
 
-di_name_mat = pd.read_csv('model/di_name_csv.csv')
+di_name_mat = pd.read_csv('model/di_name_en_csv.csv')
 med_name_dt = pd.read_csv('model/med_name_csv.csv')
 # prob_mat = pd.read_csv('model/dm_mat.csv')
 
@@ -21,6 +22,8 @@ with open('model/big_matrix','rb') as fp:
     cnt_mat = pickle.load(fp)
 
 di_name_list = di_name_mat['name'].tolist()
+di_en_name_list = di_name_mat['en_name'].tolist()
+di_id_list = di_name_mat['id'].tolist()
 
 de_mat = pd.read_csv('model/func_type_mat.csv')
 de_name_list = list(de_mat.loc[:,'name'])
@@ -59,19 +62,35 @@ with open('model/age_cnt','rb') as fp:
     age_cnt = pickle.load(fp)
 
 class DiseaseForm(FlaskForm):
-    med = SelectField('查看的疾病', choices=list(di_name_mat.loc[:,'name']))
+    # med = SelectField('查看的疾病', choices=list(di_name_mat.loc[:,'name']))
+
+    choice = []
+
+    for i in range(len(di_name_list)):
+        choice.append((di_name_list[i],di_name_list[i],{"data-tokens": di_en_name_list[i] + " " + str(di_id_list[i])}))
+
+    med = AttribSelectField('查看的科別', choices=choice,render_kw={"data-live-search":"true"})
+
     submit = SubmitField("確認")
 
 class GenderForm(FlaskForm):
-    gender = SelectField('查看的性別', choices=gender_list)
+    gender = SelectField('查看的性別', choices=gender_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
 class DepartmentForm(FlaskForm):
-    dept = SelectField('查看的科別', choices=de_name_list,render_kw={"data-live-search":"true"})
+    # dept = SelectField('查看的科別', choices=de_name_list,render_kw={"data-live-search":"true"})
+
+    # create custom choice array
+    choice = [('default','default',dict())]
+
+    for item in de_name_list[1:]:
+        choice.append((item,item,{"data-tokens":de_name_id_list[item]}))
+
+    dept = AttribSelectField('查看的科別', choices=choice,render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
 class AgeForm(FlaskForm):
-    age = SelectField('查看的年齡', choices=age_list)
+    age = SelectField('查看的年齡', choices=age_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
 @app.route('/',methods=['GET','POST'])
