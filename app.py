@@ -67,7 +67,7 @@ class GenderForm(FlaskForm):
     submit = SubmitField("確認")
 
 class DepartmentForm(FlaskForm):
-    dept = SelectField('查看的科別', choices=de_name_list)
+    dept = SelectField('查看的科別', choices=de_name_list,render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
 class AgeForm(FlaskForm):
@@ -211,6 +211,10 @@ def result():
     # di_prob = 1
     di_id = di_name_list.index(session['chosen_disease'])
 
+    print(di_id)
+    print(gender_begin,gender_end)
+    print(age_begin,age_end)
+
     # run through all possible medicine and add them into alter_med
     # alter_med format: {med_name: count}
     alter_med = {}
@@ -218,6 +222,7 @@ def result():
         for j in range(gender_begin,gender_end):
             for k in range(age_begin,age_end):
                 disease_id = di_id
+                print(cnt_mat[disease_id][i][j][k][0].keys())
                 for item in cnt_mat[disease_id][i][j][k][0].keys():
                     if item not in alter_med:
                         alter_med[item] = cnt_mat[disease_id][i][j][k][0][item]
@@ -234,6 +239,10 @@ def result():
 
     for item in alter_med.keys():
         med_prob.append([item,alter_med[item] / conditional_deno])
+
+    mmm = [x[1] for x in med_prob]
+    print(mmm)
+    print(sum(mmm))
 
     # find the corresponding icd code given disease chinese name
     id = -1
