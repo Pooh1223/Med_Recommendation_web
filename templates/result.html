@@ -15,7 +15,7 @@
 		<!-- <h1>{{med}}</h1> -->
 		<ul>
 		{% for item in med %}
-			<li>Top {{loop.index}}: {{item[0]}} , probability: {{item[1]}} </li>
+			<li>Top {{loop.index}}: {{item[1]}} , probability: {{item[-1]}} </li>
 		{% endfor %}
 		</ul>
 	</div>

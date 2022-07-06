@@ -15,7 +15,7 @@ app = Flask(__name__, template_folder='templates')
 app.config["SECRET_KEY"] = "123456"
 
 di_name_mat = pd.read_csv('model/di_name_en_csv.csv')
-med_name_dt = pd.read_csv('model/med_name_csv.csv')
+med_name_dt = pd.read_csv('model/med_name_en_csv.csv')
 # prob_mat = pd.read_csv('model/dm_mat.csv')
 
 with open('model/big_matrix','rb') as fp:
@@ -24,6 +24,8 @@ with open('model/big_matrix','rb') as fp:
 di_name_list = di_name_mat['name'].tolist()
 di_en_name_list = di_name_mat['en_name'].tolist()
 di_id_list = di_name_mat['id'].tolist()
+med_id_list = med_name_dt['name'].tolist()
+med_en_name_list = med_name_dt['en_name'].tolist()
 
 de_mat = pd.read_csv('model/func_type_mat.csv')
 de_name_list = list(de_mat.loc[:,'name'])
@@ -151,7 +153,7 @@ def distributions(disease_name):
 def bar_chart_plot(plot_list,x_name,y_name,plot_name,rotate,filename):
     # entry in plot_list is of the form (name , prob)
     name = [x[0] for x in plot_list]
-    prob = [x[1] for x in plot_list]
+    prob = [x[-1] for x in plot_list]
 
     x = np.arange(len(name))
     plt.bar(x, prob)
@@ -257,9 +259,10 @@ def result():
     med_prob = []
 
     for item in alter_med.keys():
-        med_prob.append([item,alter_med[item] / conditional_deno])
+        med_name = med_en_name_list[med_id_list.index(item)]
+        med_prob.append([item,med_name,alter_med[item] / conditional_deno])
 
-    mmm = [x[1] for x in med_prob]
+    mmm = [x[-1] for x in med_prob]
     print(mmm)
     print(sum(mmm))
 
@@ -281,7 +284,7 @@ def result():
     # di_col = list(prob_mat.loc[:,id])
     # di_col = zip(di_col,list(x for x in range(len(di_col))))
     # di_col = zip(med_prob,list(x for x in range(len(med_prob))))
-    di_col = sorted(med_prob,key = lambda s: s[1],reverse = True)
+    di_col = sorted(med_prob,key = lambda s: s[-1],reverse = True)
 
     # med_name = list(med_name_dt.loc[:,'name'])
 
@@ -291,7 +294,7 @@ def result():
     for i in range(min(10,len(di_col))):
         # print(med_prob[i][1])
         # print(type(med_prob[i][1]))
-        med_name_prob.append([di_col[i][0],di_col[i][1]])
+        med_name_prob.append([di_col[i][0],di_col[i][1],di_col[i][2]])
 
     # session['med'] = di_col
     # session['med_name'] = list(med_name_dt.loc[:,'name'])
