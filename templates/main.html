@@ -13,8 +13,10 @@
 
 	<body>
 		<h1>NHI Search</h1>
-
+		
 		{% block content %}
+		<h2>Medicine Recommendation</h2>
+		
 		<div class="container">
 			<form method="POST"> <!-- form 表單 -->
 				{{deForm.hidden_tag()}}
@@ -33,9 +35,14 @@
 			
 
 			
-				{{ageForm.hidden_tag()}}
-				{{ageForm.age.label(class='form-label')}} 
-				{{ageForm.age(class='selectpicker')}}
+				{{ageFormUpper.hidden_tag()}}
+				{{ageFormUpper.age.label(class='form-label')}} 
+				{{ageFormUpper.age(class='selectpicker')}}
+				<br>
+
+				{{ageFormLower.hidden_tag()}}
+				{{ageFormLower.age.label(class='form-label')}} 
+				{{ageFormLower.age(class='selectpicker')}}
 				<br>
 				
 			
@@ -48,13 +55,17 @@
 
 			</form>
 		</div>
-		{% endblock %}
+		
 
-		<select class="selectpicker" data-live-search="true">
-		  <option>Mustard</option>
-		  <option>Ketchup</option>
-		  <option>Relish</option>
-		</select>
+		<h2>Disease Probability</h2>
+		
+		<div class="container">
+			<form method="POST">
+				
+			</form>
+		</div>
+
+		{% endblock %}
 
 		<!-- Latest compiled and minified CSS -->
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, session, redirect, url_for, Response
+from flask import Blueprint,Flask, render_template, session, redirect, url_for, Response
 import pickle
 import pandas as pd
 from flask_wtf import FlaskForm
@@ -91,20 +91,28 @@ class DepartmentForm(FlaskForm):
     dept = AttribSelectField('查看的科別', choices=choice,render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
-class AgeForm(FlaskForm):
-    age = SelectField('查看的年齡', choices=age_list, render_kw={"data-live-search":"true"})
+class AgeFormUpper(FlaskForm):
+    age = SelectField('查看的年齡上界', choices=age_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
+
+class AgeFormLower(FlaskForm):
+    age = SelectField('查看的年齡下界', choices=age_list, render_kw={"data-live-search":"true"})
+    submit = SubmitField("確認")
+
+# disease form for searching probability
 
 @app.route('/',methods=['GET','POST'])
 def main():
     diForm = DiseaseForm()
     geForm = GenderForm()
     deForm = DepartmentForm()
-    ageForm = AgeForm()
+    ageFormUpper = AgeFormUpper()
+    ageFormLower = AgeFormLower()
 
     if diForm.validate_on_submit():
         session['chosen_disease'] = diForm.med.data
-        session['chosen_age'] = ageForm.age.data
+        session['chosen_age_upper'] = ageFormUpper.age.data
+        session['chosen_age_lower'] = ageFormLower.age.data
         session['chosen_gender'] = geForm.gender.data
         session['chosen_dept'] = deForm.dept.data
 
@@ -116,9 +124,9 @@ def main():
         # print(geForm.validate_on_submit())
         # print(deForm.validate_on_submit())
 
-        return redirect(url_for('result'))
+        return redirect(url_for('med_result'))
 
-    return render_template('main.html',diForm=diForm,geForm=geForm,deForm=deForm,ageForm=ageForm)
+    return render_template('main.html',diForm=diForm,geForm=geForm,deForm=deForm,ageFormUpper=ageFormUpper,ageFormLower=ageFormLower)
 
 
 def distributions(disease_name):
@@ -177,8 +185,8 @@ def bar_chart_plot(plot_list,x_name,y_name,plot_name,rotate,filename):
 
     return imd
 
-@app.route('/result')
-def result():
+@app.route('/med_result')
+def med_result():
 
     age_begin = 0
     age_end = 100
@@ -194,9 +202,17 @@ def result():
     all_default = True
 
     # limit the scope
-    if session['chosen_age'] != 'default':
-        age_begin = int(session['chosen_age'])
+    if session['chosen_age_upper'] != 'default':
+        # age_begin = int(session['chosen_age'])
         age_end = int(session['chosen_age']) + 1
+
+        # p_age = age_cnt[0][int(session['chosen_age'])][1] / age_cnt[1]
+
+        all_default = False
+
+    if session['chosen_age_lower'] != 'default':
+        age_begin = int(session['chosen_age'])
+        # age_end = int(session['chosen_age']) + 1
 
         # p_age = age_cnt[0][int(session['chosen_age'])][1] / age_cnt[1]
 
@@ -341,7 +357,7 @@ def result():
 
     # origin html: <img src="{{url_for('static',filename='top10med.png')}}">
 
-    return render_template("result.html",med = med_name_prob,med_img = med_img,age_img = age_img,dept_img = dept_img, gender_img = gender_img)
+    return render_template("med_result.html",di_name = session['chosen_disease'],med = med_name_prob,med_img = med_img,age_img = age_img,dept_img = dept_img, gender_img = gender_img)
 
 if __name__ == '__main__':
 
