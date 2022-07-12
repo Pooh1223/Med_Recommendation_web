@@ -10,15 +10,29 @@
 <body>
 	<h1>Result</h1>
 	{% block content %}
+	
 	<div class="container">
-		<p>{{di_name}} 推薦用藥</p>
-		<!-- <h1>{{med}}</h1> -->
-		<ul>
-		{% for item in med %}
-			<li>Top {{loop.index}}: {{item[1]}} , probability: {{item[-1]}} </li>
-		{% endfor %}
-		</ul>
+		<h3>{{di_name}} 推薦用藥 (若有認為不符合者，可勾選後送出回饋)</h3>
+		<form method="post">
+			<label>
+				{% for item in med %}
+					<input type="checkbox" name="check" value="{{item[0]}}">
+					Top {{loop.index}}: {{item[1]}} , probability: {{item[-1]}}
+					<br>
+				{% endfor %}
+				<input type="submit" name="submit" value="submit">
+			</label>
+		</form>
+
+		{% with messages = get_flashed_messages() %}
+		   {% if messages %}
+		      {% for message in messages %}
+		         <h3>{{ message }}</h3>
+		      {% endfor %}
+		   {% endif %}
+		{% endwith %}
 	</div>
+
 	{% endblock %}
 
 	<div>

@@ -1,4 +1,4 @@
-from flask import Blueprint,Flask, render_template, session, redirect, url_for, Response
+from flask import Blueprint,Flask, render_template, session, redirect, url_for, Response , request , flash
 import pickle
 import pandas as pd
 from flask_wtf import FlaskForm
@@ -188,8 +188,17 @@ def bar_chart_plot(plot_list,x_name,y_name,plot_name,rotate,filename):
 
     return imd
 
-@med_.route('/med_result')
+@med_.route('/med_result',methods=["GET","POST"])
 def med_result():
+
+    if request.method == "POST":
+        # get response from result page
+        
+        print(request.form.getlist('check'))
+        flash('Submit successfully!')
+        # return render_template("med_result.html",di_name = session['chosen_disease'],med = med_name_prob,med_img = med_img,age_img = age_img,dept_img = dept_img, gender_img = gender_img)
+
+    # showing result page
 
     age_begin = 0
     age_end = 100
@@ -359,5 +368,12 @@ def med_result():
     dept_img = bar_chart_plot(dept_dist,'Department','Number','Dept distribution',0,'dept_dist')
 
     # origin html: <img src="{{url_for('static',filename='top10med.png')}}">
+
+    # save session 
+    # session['top_10_med'] = med_name_prob
+    # session['med_img'] = med_img
+    # session['age_img'] = age_img
+    # session['dept_img'] = dept_img
+    # session['gender_img'] = gender_img
 
     return render_template("med_result.html",di_name = session['chosen_disease'],med = med_name_prob,med_img = med_img,age_img = age_img,dept_img = dept_img, gender_img = gender_img)
