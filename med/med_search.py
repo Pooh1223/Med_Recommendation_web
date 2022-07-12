@@ -38,6 +38,10 @@ di_id_list = di_name_mat['id'].tolist()
 med_id_list = med_name_dt['name'].tolist()
 med_en_name_list = med_name_dt['en_name'].tolist()
 
+usable_threshold = 3
+with open('model/unconf_matrix','rb') as fp:
+    med_unconfident_cnt = pickle.load(fp)
+
 de_mat = pd.read_csv('model/func_type_mat.csv')
 de_name_list = list(de_mat.loc[:,'name'])
 gender_list = ['M','F']
@@ -94,12 +98,12 @@ class DepartmentForm(FlaskForm):
     dept = AttribSelectField('查看的科別', choices=choice,render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
-class AgeFormUpper(FlaskForm):
-    age = SelectField('查看的年齡上界', choices=age_list, render_kw={"data-live-search":"true"})
+class AgeFormLower(FlaskForm):
+    age = SelectField('查看的年齡下界(小)', choices=age_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
-class AgeFormLower(FlaskForm):
-    age = SelectField('查看的年齡下界', choices=age_list, render_kw={"data-live-search":"true"})
+class AgeFormUpper(FlaskForm):
+    age = SelectField('查看的年齡上界(大)', choices=age_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
 # disease form for searching probability
@@ -114,8 +118,8 @@ def med_search():
 
     if diForm.validate_on_submit():
         session['chosen_disease'] = diForm.med.data
-        session['chosen_age_upper'] = ageFormUpper.age.data
         session['chosen_age_lower'] = ageFormLower.age.data
+        session['chosen_age_upper'] = ageFormUpper.age.data
         session['chosen_gender'] = geForm.gender.data
         session['chosen_dept'] = deForm.dept.data
 
@@ -191,13 +195,6 @@ def bar_chart_plot(plot_list,x_name,y_name,plot_name,rotate,filename):
 @med_.route('/med_result',methods=["GET","POST"])
 def med_result():
 
-    if request.method == "POST":
-        # get response from result page
-        
-        print(request.form.getlist('check'))
-        flash('Submit successfully!')
-        # return render_template("med_result.html",di_name = session['chosen_disease'],med = med_name_prob,med_img = med_img,age_img = age_img,dept_img = dept_img, gender_img = gender_img)
-
     # showing result page
 
     age_begin = 0
@@ -249,7 +246,6 @@ def med_result():
 
         all_default = False
 
-
     # conditional probability denominator and numerator
     conditional_deno = 0
     conditional_numer = 0
@@ -264,9 +260,73 @@ def med_result():
     print(gender_begin,gender_end)
     print(age_begin,age_end)
 
+
+    # calculate the distributions of three features
+    try :
+        disease_name = float(di_name_mat['id'].tolist()[di_id])
+    except :
+        disease_name = di_name_mat['id'].tolist()[di_id]
+    age_distribution , gender_distribution , dept_distribution = distributions(disease_name)
+
+    print(disease_name)
+    print(type(disease_name))
+    print(len(age_distribution[0]))
+    print(len(gender_distribution[0]))
+    print(len(dept_distribution[0]))
+
+    # transform distribution list into the form of bar_chart_plot (name,count)
+    age_dist = []
+    for item in age_distribution[0].keys():
+        age_dist.append([item,age_distribution[0][item]])
+
+    gender_dist = []
+    for item in gender_distribution[0].keys():
+        gender_dist.append([item,gender_distribution[0][item]])
+
+    dept_dist = []
+    for item in dept_distribution[0].keys():
+        dept_dist.append([item,dept_distribution[0][item]])
+
+    print(len(age_dist))
+    print(len(gender_dist))
+    print(len(dept_dist))
+
+    # if under certain situation, the medicine unconfident count is more than threshold
+    # then it will be discarded
+    with open('model/unconf_matrix','rb') as fp:
+        med_unconfident_cnt = pickle.load(fp)
+
+    if request.method == "POST":
+        # get response from result page
+        discard = request.form.getlist('check')
+        print(discard)
+        flash('Submit successfully!')
+        
+        # split the count averagely to all the cell
+        chip = 1 / (age_end - age_begin) / (gender_end - gender_begin) / len(dept_dist)
+
+        # averagely add them to matrix
+        for item in discard:
+            for i in range(dept_begin,dept_end):
+                for j in range(gender_begin,gender_end):
+                    for k in range(age_begin,age_end):
+                        if item not in med_unconfident_cnt[di_id][i][j][k]:
+                            med_unconfident_cnt[di_id][i][j][k][item] = chip
+                        else :
+                            med_unconfident_cnt[di_id][i][j][k][item] += chip
+
+        with open('model/unconf_matrix','wb') as fp:
+            pickle.dump(med_unconfident_cnt,fp)
+
+
     # run through all possible medicine and add them into alter_med
     # alter_med format: {med_name: count}
+    
+    # med_unconf sum up the  unconf value under all situation
+    # med_unconf format: {med_name: unconf_val}
+
     alter_med = {}
+    med_unconf = {}
     for i in range(dept_begin,dept_end):
         for j in range(gender_begin,gender_end):
             for k in range(age_begin,age_end):
@@ -278,6 +338,15 @@ def med_result():
                     else :
                         alter_med[item] += cnt_mat[disease_id][i][j][k][0][item]
 
+                    # maybe there's no unconf (unconf_val = 0)
+                    if item not in med_unconfident_cnt[disease_id][i][j][k].keys():
+                        med_unconf[item] = 0
+                    else :
+                        if item not in med_unconf:
+                            med_unconf[item] = med_unconfident_cnt[disease_id][i][j][k][item]
+                        else :
+                            med_unconf[item] += med_unconfident_cnt[disease_id][i][j][k][item]
+
                 conditional_deno += cnt_mat[disease_id][i][j][k][1]
 
     # di_prob = conditional_numer / conditional_deno
@@ -288,7 +357,8 @@ def med_result():
 
     for item in alter_med.keys():
         med_name = med_en_name_list[med_id_list.index(item)]
-        med_prob.append([item,med_name,alter_med[item] / conditional_deno])
+        if med_unconf[item] < usable_threshold:
+            med_prob.append([item,med_name,alter_med[item] / conditional_deno])
 
     mmm = [x[-1] for x in med_prob]
     print(mmm)
@@ -332,35 +402,7 @@ def med_result():
     print(type(med_name_prob))
     med_img = bar_chart_plot(med_name_prob,'Med','Prob','Top 10 medicine',20,'top10med')
 
-    # calculate the distributions of three features
-    try :
-        disease_name = float(di_name_mat['id'].tolist()[di_id])
-    except :
-        disease_name = di_name_mat['id'].tolist()[di_id]
-    age_distribution , gender_distribution , dept_distribution = distributions(disease_name)
-
-    print(disease_name)
-    print(type(disease_name))
-    print(len(age_distribution[0]))
-    print(len(gender_distribution[0]))
-    print(len(dept_distribution[0]))
-
-    # transform distribution list into the form of bar_chart_plot (name,count)
-    age_dist = []
-    for item in age_distribution[0].keys():
-        age_dist.append([item,age_distribution[0][item]])
-
-    gender_dist = []
-    for item in gender_distribution[0].keys():
-        gender_dist.append([item,gender_distribution[0][item]])
-
-    dept_dist = []
-    for item in dept_distribution[0].keys():
-        dept_dist.append([item,dept_distribution[0][item]])
-
-    print(len(age_dist))
-    print(len(gender_dist))
-    print(len(dept_dist))
+    
 
     # save their plot
     age_img = bar_chart_plot(age_dist,'Age','Number','Age distribution',90,'age_dist')
@@ -368,12 +410,5 @@ def med_result():
     dept_img = bar_chart_plot(dept_dist,'Department','Number','Dept distribution',0,'dept_dist')
 
     # origin html: <img src="{{url_for('static',filename='top10med.png')}}">
-
-    # save session 
-    # session['top_10_med'] = med_name_prob
-    # session['med_img'] = med_img
-    # session['age_img'] = age_img
-    # session['dept_img'] = dept_img
-    # session['gender_img'] = gender_img
 
     return render_template("med_result.html",di_name = session['chosen_disease'],med = med_name_prob,med_img = med_img,age_img = age_img,dept_img = dept_img, gender_img = gender_img)

@@ -86,12 +86,12 @@ class DepartmentForm(FlaskForm):
     dept = AttribSelectField('查看的科別', choices=choice,render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
-class AgeFormUpper(FlaskForm):
-    age = SelectField('查看的年齡上界', choices=age_list, render_kw={"data-live-search":"true"})
+class AgeFormLower(FlaskForm):
+    age = SelectField('查看的年齡下界(小)', choices=age_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
-class AgeFormLower(FlaskForm):
-    age = SelectField('查看的年齡下界', choices=age_list, render_kw={"data-live-search":"true"})
+class AgeFormUpper(FlaskForm):
+    age = SelectField('查看的年齡上界(大)', choices=age_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
 # disease form for searching probability
@@ -105,8 +105,8 @@ def di_search():
     ageFormLower = AgeFormLower()
 
     if geForm.validate_on_submit():
-        session['chosen_age_upper'] = ageFormUpper.age.data
         session['chosen_age_lower'] = ageFormLower.age.data
+        session['chosen_age_upper'] = ageFormUpper.age.data
         session['chosen_gender'] = geForm.gender.data
         session['chosen_dept'] = deForm.dept.data
 
