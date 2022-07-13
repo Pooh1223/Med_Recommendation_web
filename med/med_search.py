@@ -10,7 +10,7 @@ import numpy as np
 from io import BytesIO
 import base64
 from Class.AttrSelect import *
-
+import copy
 from configs import config
 
 # # to import from parent folder
@@ -105,6 +105,19 @@ class AgeFormLower(FlaskForm):
 class AgeFormUpper(FlaskForm):
     age = SelectField('查看的年齡上界(大)', choices=age_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
+
+class MedResponse(FlaskForm):
+
+    # eval = [5,4,3,2,1]
+    med_res = SelectField('')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.med_res.choices = (5,4,3,2,1)
+
+    # med_res.choises = eval
+    submit = SubmitField("確認")
+
 
 # disease form for searching probability
 
@@ -203,9 +216,11 @@ def med_result():
     gender_end = 2
     dept_begin = 0
     dept_end = len(de_name_list) - 1 # minus default
-    # p_dept = 1
-    # p_gender = 1
-    # p_age = 1
+
+    # and add 5-graded form in each item in med_name_prob
+    med_res_form = []
+    for i in range(10):
+        med_res_form.append(MedResponse())
 
     # check if all if default
     all_default = True
@@ -296,27 +311,41 @@ def med_result():
     with open('model/unconf_matrix','rb') as fp:
         med_unconfident_cnt = pickle.load(fp)
 
-    if request.method == "POST":
+    # after submit the evaluation form -> redirect
+    if med_res_form[0].validate_on_submit():
         # get response from result page
-        discard = request.form.getlist('check')
-        print(discard)
+        eval = []
+        cnt = 1
+        for name,item in zip(session['top_10_med'],med_res_form):
+            eval.append([name,int(item.med_res.data)])
+            cnt += 1
+
+        print(eval)
         flash('Submit successfully!')
         
         # split the count averagely to all the cell
-        chip = 1 / (age_end - age_begin) / (gender_end - gender_begin) / len(dept_dist)
+        for item in eval:
+            if item[1] != 5:
+                # the medicine unconfident value need to update
+                chip = (5 - item[1]) / 5 / (age_end - age_begin) / (gender_end - gender_begin) / len(dept_dist)
 
-        # averagely add them to matrix
-        for item in discard:
-            for i in range(dept_begin,dept_end):
-                for j in range(gender_begin,gender_end):
-                    for k in range(age_begin,age_end):
-                        if item not in med_unconfident_cnt[di_id][i][j][k]:
-                            med_unconfident_cnt[di_id][i][j][k][item] = chip
-                        else :
-                            med_unconfident_cnt[di_id][i][j][k][item] += chip
+                # averagely add them to matrix
+                for item in eval:
+                    for i in range(dept_begin,dept_end):
+                        for j in range(gender_begin,gender_end):
+                            for k in range(age_begin,age_end):
+                                if item[0] not in med_unconfident_cnt[di_id][i][j][k]:
+                                    med_unconfident_cnt[di_id][i][j][k][item[0]] = chip
+                                else :
+                                    med_unconfident_cnt[di_id][i][j][k][item[0]] += chip
 
         with open('model/unconf_matrix','wb') as fp:
             pickle.dump(med_unconfident_cnt,fp)
+
+        session['response'] = eval
+
+        return redirect(url_for('med_search.med_response'))
+        # return render_template('med_res_result.html',di_name=session['chosen_disease'],result=eval)
 
 
     # run through all possible medicine and add them into alter_med
@@ -371,17 +400,6 @@ def med_result():
             id = item[0]
             break
 
-    # multiply by conditional probability : p(med | disease) * p(disease | dept , gender , age) * p(dept) * p(gender) * p(age)
-
-    # result_prob = []
-
-    # for item in list(prob_mat.loc[:,id]):
-    #     conditional_prob = item * di_prob * p_dept * p_gender * p_age
-    #     result_prob.append(conditional_prob)
-
-    # di_col = list(prob_mat.loc[:,id])
-    # di_col = zip(di_col,list(x for x in range(len(di_col))))
-    # di_col = zip(med_prob,list(x for x in range(len(med_prob))))
     di_col = sorted(med_prob,key = lambda s: s[-1],reverse = True)
 
     # med_name = list(med_name_dt.loc[:,'name'])
@@ -389,9 +407,11 @@ def med_result():
     med_name_prob = []
 
     # insert pair (med_name,probability)
+    
     for i in range(min(10,len(di_col))):
         # print(med_prob[i][1])
         # print(type(med_prob[i][1]))
+        
         med_name_prob.append([di_col[i][0],di_col[i][1],di_col[i][2]])
 
     # session['med'] = di_col
@@ -411,4 +431,17 @@ def med_result():
 
     # origin html: <img src="{{url_for('static',filename='top10med.png')}}">
 
-    return render_template("med_result.html",di_name = session['chosen_disease'],med = med_name_prob,med_img = med_img,age_img = age_img,dept_img = dept_img, gender_img = gender_img)
+    # record medicine id
+    session['top_10_med'] = [x[1] for x in med_name_prob]
+
+
+    return render_template("med_result.html",di_name = session['chosen_disease'],med = med_name_prob,med_form=med_res_form,med_img = med_img,age_img = age_img,dept_img = dept_img, gender_img = gender_img)
+
+
+@med_.route('/med_response',methods=["GET","POST"])
+def med_response():
+    if request.method == "POST":
+        print("post")
+        return redirect(url_for('main'))
+
+    return render_template('med_res_result.html',di_name=session['chosen_disease'],result=session['response'])
