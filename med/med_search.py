@@ -106,17 +106,19 @@ class AgeFormUpper(FlaskForm):
     age = SelectField('查看的年齡上界(大)', choices=age_list, render_kw={"data-live-search":"true"})
     submit = SubmitField("確認")
 
-class MedResponse(FlaskForm):
+def DynamicMedResponse(number_of_med):
+    # create the form dynamically
 
-    # eval = [5,4,3,2,1]
-    med_res = SelectField('')
+    class MedResponse(FlaskForm):
+        # med_res.choises = eval
+        submit = SubmitField("確認")
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.med_res.choices = (5,4,3,2,1)
+    for i in range(number_of_med):
+        # eval = [5,4,3,2,1]
+        setattr(MedResponse,f'f{i}',SelectField(f'F{i}',choices=[5,4,3,2,1]))
+        # med_res = SelectField('')
 
-    # med_res.choises = eval
-    submit = SubmitField("確認")
+    return MedResponse;
 
 
 # disease form for searching probability
@@ -218,9 +220,9 @@ def med_result():
     dept_end = len(de_name_list) - 1 # minus default
 
     # and add 5-graded form in each item in med_name_prob
-    med_res_form = []
-    for i in range(10):
-        med_res_form.append(MedResponse())
+    med_res_form = DynamicMedResponse(10)(request.form)
+    # for i in range(10):
+    #     med_res_form.append(MedResponse())
 
     # check if all if default
     all_default = True
@@ -312,16 +314,20 @@ def med_result():
         med_unconfident_cnt = pickle.load(fp)
 
     # after submit the evaluation form -> redirect
-    if med_res_form[0].validate_on_submit():
+    if med_res_form.validate_on_submit():
         # get response from result page
         eval = []
         cnt = 1
-        for name,item in zip(session['top_10_med'],med_res_form):
-            eval.append([name,int(item.med_res.data)])
+        # for name,item in zip(session['top_10_med'],med_res_form):
+        #     eval.append([name,int(item.med_res.data)])
+        #     cnt += 1
+        for i in range(len(session['top_10_med'])):
+            eval.append([session['top_10_med'][i],int(getattr(med_res_form,f'f{i}').data)])
+            print(int(getattr(med_res_form,f'f{i}').data))
             cnt += 1
 
         print(eval)
-        flash('Submit successfully!')
+        # flash('Submit successfully!')
         
         # split the count averagely to all the cell
         for item in eval:

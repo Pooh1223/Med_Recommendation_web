@@ -18,16 +18,18 @@
 			<label>
 				{% for item in med %}
 					<!--<input type="checkbox" name="check" value="{{item[0]}}">-->
+					{{med_form.hidden_tag()}}
 					<div class="col-xs-2">
-						{{med_form[loop.index - 1].hidden_tag()}}
-						{{med_form[loop.index - 1].med_res.label(class='form-label')}}
-						{{med_form[loop.index - 1].med_res(class='form-control h-25 d-inline-block')}}
+						{% set field = med_form|attr('f{}'.format(loop.index - 1)) %}
+						
+						{{field.label(class='form-label')}}
+						{{field(class='form-control h-25 d-inline-block')}}
 						<p>Top {{loop.index}}: {{item[1]}}</p>
 						<p>probability: {{item[-1]}}</p>
 						<br>
 					</div>
 				{% endfor %}
-				{{med_form[0].submit(class='btn btn-primary')}}
+				{{med_form.submit(class='btn btn-primary')}}
 			</label>
 		</form>
 
