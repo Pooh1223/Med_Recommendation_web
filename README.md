@@ -1,6 +1,6 @@
 # Medical Recommendation web
 
-website: [Demo Website](https://dmc.nycu.deu.tw/drg/)
+website: [Demo Website](https://dmc.nycu.edu.tw/drg/)
 
 It's a web that created based on Bayesian network.
 
